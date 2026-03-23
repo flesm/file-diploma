@@ -1,0 +1,55 @@
+services:
+  file:
+    build:
+      context: .
+      target: final
+    command: ["/app/entrypoints/start.sh"]
+    container_name: file
+    restart: unless-stopped
+    depends_on:
+      file_mongo:
+        condition: service_started
+      file_minio:
+        condition: service_started
+    env_file:
+      - ./.env.example
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/app
+    ports:
+      - "8020:8020"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8020"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+
+  file_mongo:
+    image: mongo:7
+    container_name: file_mongo
+    restart: unless-stopped
+    ports:
+      - "27019:27017"
+    volumes:
+      - ~/apps/mongo-file:/data/db
+
+  file_minio:
+    image: minio/minio:latest
+    container_name: file_minio
+    hostname: file-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - ~/apps/minio-file:/data
+    networks:
+      default:
+        aliases:
+          - file-minio
